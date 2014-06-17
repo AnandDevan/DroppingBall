@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Sample Three.js</title>
+		<style>
+			#container {
+				background: #000000;
+				width: 800px;
+				height: 600px;
+			}
+		</style>
+		<style type="text/css">
+			body{ font: 62.5% "Trebuchet MS", sans-serif; margin: 50px;}
+			.demoHeaders { margin-top: 2em; }
+			#dialog_link {padding: .4em 1em .4em 20px;text-decoration: none;position: relative;}
+			#dialog_link span.ui-icon {margin: 0 5px 0 0;position: absolute;left: .2em;top: 50%;margin-top: -8px;}
+			ul#icons {margin: 0; padding: 0;}
+			ul#icons li {margin: 2px; position: relative; padding: 4px 0; cursor: pointer; float: left;  list-style: none;}
+			ul#icons span.ui-icon {float: left; margin: 0 4px;}
+		</style>		
+	</head>
+	<body>
+		<div id="container">
+		</div>
+		<button id="help">?</button>
+		<div id="helpDialog" title="Guide: Racketball shooting">
+		</div>
+	</body>
+
+	<link type="text/css" href="css/custom-theme/jquery-ui-1.8.22.custom.css" rel="stylesheet" />	
+	<script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>
+	<script type="text/javascript" src="js/jquery-ui-1.8.22.custom.min.js"></script>
+	<script type="text/javascript" src="js/jquery.ba-outside-events.min.js"></script>
+	<script type="text/javascript"></script>	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+	<script src="js/Three.js"></script>
+	<script src="js/Geom/Arc.js"></script>
+	<script src="js/Geom/Line.js"></script>
+	<script src="js/Geom/Point.js"></script>
+	<script src="js/Geom/Vector.js"></script>
+
+	<script src="js/THREE/ThreeUtils.js"></script>
+
+	<script src="js/Terrain/TerrainLine.js"></script>
+	<script src="js/Terrain/TerrainArc.js"></script>
+	<script src="js/Terrain/Terrain.js"></script>
+	<script src="js/Terrain/TerrainDraw.js"></script>	
+	<script src="js/Terrain/TerrainContact.js"></script>
+
+	<script src="js/Ball/Ball.js"></script>
+	<script type="text/javascript">
+	// add a toolbar at the bottom
+
+	// @see http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+	window.requestAnimFrame = (function(){
+      return  window.requestAnimationFrame       || 
+              window.webkitRequestAnimationFrame || 
+              window.mozRequestAnimationFrame    || 
+              window.oRequestAnimationFrame      || 
+              window.msRequestAnimationFrame     || 
+              function(/* function */ callback, /* DOMElement */ element){
+                window.setTimeout(callback, 1000 / 60);
+              };
+    })();
+
+	// set the scene size
+	var WIDTH = 800, HEIGHT = 600;
+
+	// set some camera attributes
+	var VIEW_ANGLE = 120, ASPECT = WIDTH / HEIGHT, NEAR = 0.001, FAR = 2*HEIGHT;
+
+	// get the DOM element to attach to
+	// - assume we've got jQuery to hand
+	var $container = $('#container');
+
+	var renderer = new THREE.WebGLRenderer();	
+	var scene = new THREE.Scene();
+
+	//var camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
+	var camera = new THREE.OrthographicCamera( -0.5*WIDTH, 0.5*WIDTH, 0.5*HEIGHT, -0.5*HEIGHT, NEAR, FAR );
+	camera.position.z = 2*HEIGHT;
+
+	renderer.setSize( WIDTH, HEIGHT );
+	$container.append(renderer.domElement);
+
+	//ThreeUtils.addLight( scene, 0.0, 0.0, -500.0, 0xFFFFFF );
+	
+	var terrain = new Terrain();
+	terrain.loadCircleExample(0.25*WIDTH, 0.75*Math.PI, 0.25*Math.PI );
+	terrain.initGraphics( scene );
+	
+	ThreeUtils.addLine( scene, -0.5*WIDTH, 0.0, 0.0, 0.5*WIDTH, 0.0, 0.0 );	
+	ThreeUtils.addLine( scene, 0.0, -0.5*HEIGHT, 0.0, 0.0, 0.5*HEIGHT, 0.0 );
+
+	var ballRadius = 10.0;
+	//var ballStartPos = new Point( 20.0, 0.25*WIDTH, 0.0 );
+	//var ballStartPos = new Point( 0.25*WIDTH*Math.sqrt(2.0)*0.5, 0.25*WIDTH*Math.sqrt(2.0)*0.5, 0.0 );
+	//var ballStartPos = new Point( 0.25*WIDTH*Math.sqrt(2.0)*0.5, -0.25*WIDTH*Math.sqrt(2.0)*0.5, 0.0 );
+	//var ballStartPos = new Point( 0.25*WIDTH, 0.0, 0.0 );
+	//var ballStartPos = new Point( 0.30*WIDTH*Math.sqrt(2.0)*0.5, 0.25*WIDTH*Math.sqrt(2.0)*0.5+30.0, 0.0 );
+	var ballStartPos = new Point( 0.0, ballRadius, 0.0 );
+	var ball = new Ball( ballRadius, ballStartPos );
+	ball.setVelocity( new Vector( 0.0, 0.0, 0.0 ) );
+	ball.gravityConst = -0.1;
+	ball.initGraphics( scene );
+	
+	var time = 0;
+	function update() 
+	{
+		ball.move( time++, terrain );
+		renderer.render( scene, camera );
+		requestAnimFrame(update);	  
+	}
+
+	var mouseX, mouseY, mouseDown;
+	$("#container").mousemove( function(event) {
+		mouseX = event.offsetX;
+		mouseY = event.offsetY;
+	} );
+	$("#container").mousedown( function(event) {
+		mouseDown = true;
+	} );
+	$("#container").mouseup( function(event) {
+		mouseDown = false;
+	} );
+
+	$(function() {
+	  $(document).keyup(function(evt) {
+		if (evt.keyCode == 32) {
+		  spaceBarDown = false;
+		}
+	  }).keydown(function(evt) {
+		if (evt.keyCode == 32) {
+		  //spaceBarDown = true;
+		  resetTargetBall = true;
+		}
+	  });
+	})
+	
+	requestAnimFrame(update);	
+	renderer.render(scene, camera);
+	</script>
+</html>

@@ -1,0 +1,304 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Dropping Ball</title>
+		<style type="text/css">
+			body{ font: 62.5% "Trebuchet MS", sans-serif; margin: 50px;}
+			.demoHeaders { margin-top: 2em; }
+			#dialog_link {padding: .4em 1em .4em 20px;text-decoration: none;position: relative;}
+			#dialog_link span.ui-icon {margin: 0 5px 0 0;position: absolute;left: .2em;top: 50%;margin-top: -8px;}
+			ul#icons {margin: 0; padding: 0;}
+			ul#icons li {margin: 2px; position: relative; padding: 4px 0; cursor: pointer; float: left;  list-style: none;}
+			ul#icons span.ui-icon {float: left; margin: 0 4px;}
+		</style>		
+	</head>
+	<body>	
+		<div id="container" style="background-image: url(resources/image/clouds.png); width: 1200px; height: 500px; ">
+		</div>
+		<div id="helpDialog" title="Guide: Ball drop game">
+		<p> Drag and drop ball to hit red target</p>
+		</div>
+	</body>
+
+	<link type="text/css" href="css/custom-theme/jquery-ui-1.8.22.custom.css" rel="stylesheet" />	
+	<script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>
+	<script src="js/Three.js"></script>
+	<script src="js/Geom/Arc.js"></script>
+	<script src="js/Geom/Line.js"></script>
+	<script src="js/Geom/Point.js"></script>
+	<script src="js/Geom/Vector.js"></script>
+	<script src="js/Target/Target.js"></script>
+	<script src="js/Terrain/TerrainLine.js"></script>
+	<script src="js/Terrain/TerrainArc.js"></script>
+	<script src="js/Terrain/Terrain.js"></script>
+	<script src="js/Terrain/TerrainDraw.js"></script>	
+	<script src="js/Terrain/TerrainContact.js"></script>
+	<script src="js/BallShute/BallShute.js"/></script>
+	<script src="js/Ball/Ball.js"></script>
+	<script src="js/Ball/BallPath.js"></script>
+
+	<script type="text/javascript">
+	// @see http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+	window.requestAnimFrame = (function(){
+      return  window.requestAnimationFrame       || 
+              window.webkitRequestAnimationFrame || 
+              window.mozRequestAnimationFrame    || 
+              window.oRequestAnimationFrame      || 
+              window.msRequestAnimationFrame     || 
+              function(/* function */ callback, /* DOMElement */ element){
+                window.setTimeout(callback, 1000 / 60);
+              };
+    })();
+
+	// set the scene size
+	var WIDTH = 1200, HEIGHT = 500;
+
+	// set some camera attributes
+	var VIEW_ANGLE = 120, ASPECT = WIDTH / HEIGHT, NEAR = 0.001, FAR = 2*HEIGHT;
+
+	// get the DOM element to attach to
+	// - assume we've got jQuery to hand
+	var $container = $('#container');
+
+	var renderer = new THREE.WebGLRenderer();
+	var scene = new THREE.Scene();
+
+	//var camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
+	var camera = new THREE.OrthographicCamera( -0.5*WIDTH, 0.5*WIDTH, 0.5*HEIGHT, -0.5*HEIGHT, NEAR, FAR );
+	camera.position.z = 500;
+	scene.add( camera );
+
+	renderer.setSize( WIDTH, HEIGHT );	
+	$container.append(renderer.domElement);
+
+	var ambientLight = new THREE.AmbientLight(0xFFFFFF);
+	scene.add(ambientLight);  
+	var pointLight = new THREE.PointLight(0xFFFFFF, 2, 500);
+	pointLight.position.set( 0.0, 0.5*WIDTH, 0.1*HEIGHT );
+	scene.add( pointLight );
+	var pointLight1 = new THREE.PointLight(0xFFFFFF, 2, 500);
+	pointLight1.position.set( 0.0, 0.25*WIDTH, 0.1*HEIGHT );
+	scene.add( pointLight1 );
+	var pointLight2 = new THREE.PointLight(0xFFFFFF, 2, 500);
+	pointLight2.position.set( 0.0, 0.0*WIDTH, 0.1*HEIGHT );
+	scene.add( pointLight2 );
+  	
+  	var directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+	directionalLight.position.set( 0, 1, 0 );
+	scene.add( directionalLight );
+  
+	var terrain = new Terrain();
+	terrain.loadExample( WIDTH, HEIGHT );
+	terrain.initGraphics( scene );
+
+	var targetRadius = 30.0;
+	var targetPos = new Point(0.0, -0.25*HEIGHT, 0.0 );
+	var target = new Target( targetRadius, targetPos );
+	target.initGraphics( scene );
+	
+	var ballRadius = 10.0;
+	var ballStartPos = new Point(terrain.right - ballRadius /*0.1*WIDTH*/, 0.05*HEIGHT, 0.0 );
+
+	var createBall = function( scene )
+	{
+		var ball = new Ball( ballRadius, ballStartPos );
+		ball.initGraphics( scene );
+		return ball;		
+	}
+	
+	// for debug
+	//ThreeUtils.addLine( scene, -0.5*WIDTH, 0.05*HEIGHT, 0.0, 0.5*WIDTH, 0.05*HEIGHT, 0.0 );
+	
+	var ballShute = new BallShute( new Point(ballStartPos.x - ballRadius*1.25, 0.0,0.0), new Point(ballStartPos.x + ballRadius, 0.5*HEIGHT, 0.0) );
+	ballShute.initGraphcis( scene );
+
+	var resetBalls = function()
+	{
+		balls[0].setPosition( ballStartPos );
+		balls[0].isReadyForLaunch = true;
+		
+		balls[1].setPosition( new Point(ballStartPos.x + 25.0, ballStartPos.y - 0.20*WIDTH, ballStartPos.z) );
+		balls[1].isReadyForLaunch = true;
+		
+		balls[2].setPosition( new Point(ballStartPos.x + 50.0, ballStartPos.y - 0.20*WIDTH, ballStartPos.z) );		
+		balls[2].isReadyForLaunch = true;
+	}
+	
+	// make three balls for three chances
+	var balls = new Array();
+	balls[0] = createBall( scene );
+	balls[1] = createBall( scene );
+	balls[2] = createBall( scene );
+	resetBalls( balls );
+	
+	// make the first ball the active one
+	var ball = balls[0];
+	ball.isReadyForLaunch = true;
+
+	// also make three ball paths to track the balls
+	var ballPath, curBallTry = 0;
+	var ballPaths = new Array();
+	ballPaths[0] = new BallPath( ballPathColor1, new THREE.Scene() );
+	scene.add( ballPaths[0].ballPathScene );
+	ballPaths[1] = new BallPath( ballPathColor2, new THREE.Scene() );
+	scene.add( ballPaths[1].ballPathScene );
+	ballPaths[2] = new BallPath( ballPathColor3, new THREE.Scene() );
+	scene.add( ballPaths[2].ballPathScene );
+	
+	pointLight = new THREE.PointLight( 0xffffff, 2, 800 );
+	scene.add( pointLight );
+	
+	var time = 0, firstRender = true;
+	function update() 
+	{
+		if ( startAnim )
+		{
+			// stop animation if outside visible terrain area
+			if ( ball.isActive )
+			{			
+				ball.move( time++, terrain );
+				
+				//ballPath.addPoint( ball.getPosition() );
+				//if ( time % 5 === 0 )
+				{
+					ballPath.markPoint( ball, scene ); 
+				}
+				
+				if ( ball.getPosition().x < -0.5*WIDTH )//target.position.x - 10*target.radius )
+				{
+					ball.isActive = false;
+					ball.setPosition( new Point(1e5, 1e5, 0.0) );
+					ball.contactPosMesh.visible = false;
+					target.reset();
+					
+					// make next ball ready and make it the current ball
+					balls[curBallTry].setPosition( ballStartPos );	
+					ball = balls[curBallTry];
+					ball.isReadyForLaunch = true;
+					
+					if ( curBallTry == 0 )
+					{
+					 	resetBalls( balls );
+						var resetBallPath = function( ballPath, scene ) {
+							ballPath.reset();
+						}
+			
+						$.each( ballPaths, function( index, curBallPath ) {
+							resetBallPath( curBallPath, scene );
+						});					 	
+					}
+				}
+			}
+
+			renderer.render( scene, camera );
+			requestAnimFrame(update);
+		}
+	}
+	
+	function updateBallPos()
+	{
+		renderer.render( scene, camera );
+	}
+
+	var mouseX, mouseY, mouseDown, startAnim = false, ballDragged = false;
+	$("#container").mousemove( function(event) {
+		mouseX = event.offsetX;
+		mouseY = event.offsetY;
+		if ( mouseDown && ballDragged )
+		{
+			//startAnim = true;
+			var ballElev =  HEIGHT*0.5 - event.offsetY;
+			if ( ballElev < ballShute.shuteBotLeft.y )
+			{
+				ballElev = ballShute.shuteBotLeft.y;
+			}
+			
+			ball.setPosition( new Point( ballStartPos.x, ballElev, 0.0 ) );			
+			requestAnimFrame( updateBallPos );
+		}
+		return false;
+	} );
+	$("#container").mousedown( function(event) {
+		if ( ball.isReadyForLaunch == false )
+		{
+			return false;
+		}
+	
+		mouseDown = true;
+		
+		var mouseDownLoc = new Point( event.offsetX -0.5*WIDTH, HEIGHT*0.5 - event.offsetY, 0.0 );
+		if ( ballShute.isInside( mouseDownLoc ) )
+		{
+			startAnim = false;
+			ballDragged = true;
+		}
+		else
+		{
+			ballDragged = false;
+		}
+		
+		return false;
+	} );
+	$("#container").mouseup( function(event) {
+		if ( ball.isReadyForLaunch == false )
+		{
+			return false;
+		}
+		
+		mouseDown = false;
+
+		startAnim = true;
+		
+		if ( ballDragged == false )
+		{
+			return false;
+		}
+				
+		ballPath = ballPaths[curBallTry];
+		curBallTry++;
+		if ( curBallTry > 2 )
+		{
+			curBallTry = 0;
+		}
+				
+		var ballNewStartPos = new Point(ballStartPos.x, ballStartPos.y, ballStartPos.z);
+		var ballStartElev =  HEIGHT*0.5 - event.offsetY;
+		if ( ballStartElev < ballShute.shuteBotLeft.y )
+		{
+			ballStartElev = ballShute.shuteBotLeft.y;
+		}					
+		ballNewStartPos.y = ballStartElev;
+	
+		ball.setPosition( ballNewStartPos );
+		ball.setVelocity( new Vector(0.0, 0.0, 0.0) );
+		ballPath.markStartPoint( ball );
+		ball.isActive = true;
+		ball.isReadyForLaunch = false;
+
+		requestAnimFrame( update );
+	} );
+
+	$(function() {
+	  $(document).keyup(function(evt) {
+		if (evt.keyCode == 32) {
+		  spaceBarDown = false;
+		}
+	  }).keydown(function(evt) {
+		if (evt.keyCode == 32) {
+		  //spaceBarDown = true;
+		  resetTargetBall = true;
+		  location.reload();
+		}
+	  });
+	})
+	
+	$(window).load(function() {
+        renderer.render(scene, camera);
+    });
+	
+	requestAnimFrame(update);	
+	renderer.render(scene, camera);
+			
+	</script>
+</html>
