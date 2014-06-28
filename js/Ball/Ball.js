@@ -14,11 +14,6 @@ var ballContactMaterial = new THREE.MeshBasicMaterial( {
     opacity: 0.5
 } );
 
-var ballHittingGroundSound = ("resources\\sound\\BallHittingGroundOutput.wav");
-var BallHittingTargetSound = ("resources\\sound\\BallHittingTarget.wav");
-var ballHitTargetSound = new Audio( BallHittingTargetSound );
-var ballHitGroundSound = new Audio( ballHittingGroundSound );
-
 function Ball( radius, position )
 {
     this.radius = radius;
@@ -102,8 +97,11 @@ Ball.prototype.move = function( time, terrain )
 		var ballHitTarget = target.isTargetHit( this );
 		if ( ballHitTarget )
 		{
-			//var ballHitTargetSound = new Audio( BallHittingTargetSound );
-			ballHitTargetSound.play();
+            var ballHitTargetSound = document.getElementById( 'ballHittingTarget' );
+            if ( ballHitTargetSound )
+            {
+			     ballHitTargetSound.play();
+            }
 		}
 	}
 	
@@ -112,8 +110,11 @@ Ball.prototype.move = function( time, terrain )
 		var distance = target.position.distanceTo( ball.getPosition() );
 		if ( distance > target.radius )
 		{
-			var ballHitGroundSound = new Audio( ballHittingGroundSound );
-			ballHitGroundSound.cloneNode().play();
+            var ballHitGroundSound = document.getElementById( 'ballHittingGround' );
+            if ( ballHitGroundSound )
+            { 
+			     ballHitGroundSound.play();
+            }
 
 			this.contactPosMesh.scale.x = 1.0;
 			this.contactPosMesh.scale.y = 1.0;

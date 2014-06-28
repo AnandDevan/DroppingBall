@@ -20,6 +20,13 @@
 		<p> Drag and drop ball to hit red target</p>
 		</div>
 	</body>
+	<audio id='ballHittingGround'>  
+		<source src="resources/sound/BallHittingGroundOutput.wav">
+		<source src="resources/sound/BallHittingGroundOutput.mp3">
+	</audio>
+    <audio id='ballHittingTarget'>
+        <source src="resources/sound/BallHittingTarget.wav">        
+    </audio>		
 
 	<link type="text/css" href="css/custom-theme/jquery-ui-1.8.22.custom.css" rel="stylesheet" />	
 	<script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>
@@ -50,6 +57,8 @@
                 window.setTimeout(callback, 1000 / 60);
               };
     })();
+
+    initTouchHandlers();
 
 	// set the scene size
 	var WIDTH = 1200, HEIGHT = 500;
@@ -299,6 +308,41 @@
 	
 	requestAnimFrame(update);	
 	renderer.render(scene, camera);
+
+  	function touchHandler(event)
+	{
+	    var touches = event.changedTouches,
+	        first = touches[0],
+	        type = "";
+	    switch(event.type)
+	    {
+	        case "touchstart": type = "mousedown"; break;
+	        case "touchmove":  type="mousemove"; break;        
+	        case "touchend":   type="mouseup"; break;
+	        default: return;
+	    }
+
+	    var simulatedEvent = document.createEvent("MouseEvent");
+	    simulatedEvent.initMouseEvent(type, true, true, window, 1, 
+	                              first.screenX, first.screenY, 
+	                              first.clientX, first.clientY, false, 
+	                              false, false, false, 0/*left*/, null);
+
+	    first.target.dispatchEvent(simulatedEvent);
+
+	    if ( event.type == "touchmove" && movingTile != null )
+	    {
+	        event.preventDefault();
+	    }
+	}
+
+    function initTouchHandlers() 
+    {
+        document.addEventListener("touchstart", touchHandler, true);
+        document.addEventListener("touchmove", touchHandler, true);
+        document.addEventListener("touchend", touchHandler, true);
+        document.addEventListener("touchcancel", touchHandler, true);    
+    }	
 			
 	</script>
 </html>
